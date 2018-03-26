@@ -1,0 +1,16 @@
+bin/
+gen/
+.classpath
+.project
+.idea/
+*.iml
+*.ipr
+*.iws
+.gradletasknamecache
+.gradle/
+build/
+bin/
+*.jar
+*.png
+*.log
+out/
