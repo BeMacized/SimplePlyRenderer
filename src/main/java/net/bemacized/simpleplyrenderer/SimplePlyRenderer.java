@@ -154,7 +154,7 @@ public class SimplePlyRenderer {
 				.append("-res <resolution>, --resolution <resolution>\n")
 				.append("\tSpecify what resolution the resulting image will be (Default 512)\n")
 				.append("\n")
-				.append("-rot <x rotation,y rotation,z rotation>, --resolution <resolution>\n")
+				.append("-rot <x rotation,y rotation,z rotation>, --rotation <x rotation,y rotation,z rotation>\n")
 				.append("\tSpecify how the model should be rotated (Default '0,0,0')\n")
 				.append("-s <SILHOUETTE|AXIS_RGB|AXIS_RGB_INVERTED>, --style <SILHOUETTE|AXIS_RGB|AXIS_RGB_INVERTED>\n")
 				.append("\tSpecify the render style out of the available options")
