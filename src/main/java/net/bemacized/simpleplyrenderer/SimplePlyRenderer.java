@@ -167,7 +167,7 @@ public class SimplePlyRenderer {
 				.append("\tEnables verbose behaviour\n")
 				.append("\n")
 				.append("-s, --style <" + String.join("|", Arrays.stream(Model.RenderStyle.values()).map(Enum::name).collect(Collectors.toList())) + ">\n")
-				.append("\tSpecify the render style out of the available options")
+				.append("\tSpecify the render style out of the available options (Default 'SILHOUETTE')")
 				.toString()
 		);
 	}

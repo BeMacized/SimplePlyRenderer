@@ -30,6 +30,6 @@ Parameters:
         Enables verbose behaviour
 
 -s, --style <SILHOUETTE|DEPTH_MAP|DEPTH_MAP_INVERTED|AXIS_RGB|AXIS_RGB_INVERTED>
-        Specify the render style out of the available options
+        Specify the render style out of the available options (Default 'SILHOUETTE')
 
 ```
