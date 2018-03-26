@@ -18,9 +18,15 @@ public class SimplePlyRenderer {
 		float xrot = 0;
 		float yrot = 0;
 		float zrot = 0;
+		boolean verbose = false;
 		// Obtain parameters
 		for (int i = 0; i < args.length; i++) {
 			switch (args[i]) {
+				case "--verbose":
+				case "-v": {
+					verbose = true;
+					break;
+				}
 				case "--rotation":
 				case "-rot": {
 					i++;
@@ -108,10 +114,10 @@ public class SimplePlyRenderer {
 		}
 
 		// Load model
-		System.out.println("Loading model...");
+		if (verbose) System.out.println("Loading model...");
 		Model model;
 		try {
-			model = new Model(modelFile);
+			model = new Model(modelFile, verbose);
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.err.println("The provided source model could not be loaded.");
@@ -121,10 +127,10 @@ public class SimplePlyRenderer {
 
 		// Render model
 		BufferedImage render = model.normalizeVertices(true).rotate(xrot, yrot, zrot, .5f, .5f, .5f).render(resolution, renderStyle);
-		System.out.println("Model rendered");
+		if (verbose) System.out.println("Model rendered");
 
 		// Save model
-		System.out.println("Saving render...");
+		if (verbose) System.out.println("Saving render...");
 		try {
 			ImageIO.write(render, "png", outputFile);
 		} catch (IOException e) {
@@ -156,6 +162,10 @@ public class SimplePlyRenderer {
 				.append("\n")
 				.append("-rot <x rotation,y rotation,z rotation>, --rotation <x rotation,y rotation,z rotation>\n")
 				.append("\tSpecify how the model should be rotated (Default '0,0,0')\n")
+				.append("\n")
+				.append("-v, --verbose\n")
+				.append("\tEnables verbose behaviour\n")
+				.append("\n")
 				.append("-s <SILHOUETTE|AXIS_RGB|AXIS_RGB_INVERTED>, --style <SILHOUETTE|AXIS_RGB|AXIS_RGB_INVERTED>\n")
 				.append("\tSpecify the render style out of the available options")
 				.toString()

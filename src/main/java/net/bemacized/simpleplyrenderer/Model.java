@@ -17,13 +17,25 @@ public class Model {
 
 	private final int[][] faces;
 	private final float[][] vertices;
+	private final boolean verbose;
 
 	public Model(int[][] faces, float[][] vertices) {
+		this(faces, vertices, false);
+	}
+
+	public Model(int[][] faces, float[][] vertices, boolean verbose) {
 		this.faces = faces;
 		this.vertices = vertices;
+		this.verbose = verbose;
 	}
 
 	public Model(File plyFile) throws IOException {
+		this(plyFile, false);
+	}
+
+	public Model(File plyFile, boolean verbose) throws IOException {
+		this.verbose = verbose;
+
 		// Load file
 		PlyReader plyReader = new PlyReaderFile(plyFile);
 
@@ -62,7 +74,8 @@ public class Model {
 			elReader = plyReader.nextElementReader();
 		}
 
-		System.out.println("Loaded ply with " + faces.length + " faces and " + vertices.length + " vertices!");
+		if (verbose)
+			System.out.println("Loaded ply with " + faces.length + " faces and " + vertices.length + " vertices!");
 	}
 
 	public int[][] getFaces() {
@@ -105,7 +118,7 @@ public class Model {
 			}
 		}
 
-		return new Model(_faces, _vertices);
+		return new Model(_faces, _vertices, verbose);
 	}
 
 	private float getMin(int axisIndex) {
@@ -174,11 +187,11 @@ public class Model {
 			}
 		}
 
-		return new Model(_faces, _vertices);
+		return new Model(_faces, _vertices, verbose);
 	}
 
 	public BufferedImage render(int resolution, RenderStyle renderStyle) {
-		System.out.println("Rendering at resolution " + resolution + " with style " + renderStyle.name());
+		if (verbose) System.out.println("Rendering at resolution " + resolution + " with style " + renderStyle.name());
 
 		// Get a normalized, centered, model
 		Model model = this.normalizeVertices(true);

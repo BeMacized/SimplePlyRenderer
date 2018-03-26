@@ -25,6 +25,10 @@ Parameters:
 
 -rot <x rotation,y rotation,z rotation>, --rotation <x rotation,y rotation,z rotation>
         Specify how the model should be rotated (Default '0,0,0')
+
+-v, --verbose
+        Enables verbose behaviour
+
 -s <SILHOUETTE|AXIS_RGB|AXIS_RGB_INVERTED>, --style <SILHOUETTE|AXIS_RGB|AXIS_RGB_INVERTED>
         Specify the render style out of the available options
 ```
