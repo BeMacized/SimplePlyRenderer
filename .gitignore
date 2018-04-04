@@ -13,4 +13,5 @@ bin/
 *.jar
 *.png
 *.log
+*.obj
 out/

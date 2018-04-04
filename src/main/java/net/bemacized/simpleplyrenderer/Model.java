@@ -9,21 +9,25 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class Model {
 
 	private final int[][] faces;
-	private final float[][] vertices;
+	private final Vector3[] vertices;
 	private final boolean verbose;
 
-	public Model(int[][] faces, float[][] vertices) {
+	public Model(int[][] faces, Vector3[] vertices) {
 		this(faces, vertices, false);
 	}
 
-	public Model(int[][] faces, float[][] vertices, boolean verbose) {
+	public Model(int[][] faces, Vector3[] vertices, boolean verbose) {
 		this.faces = faces;
 		this.vertices = vertices;
 		this.verbose = verbose;
@@ -40,7 +44,7 @@ public class Model {
 		PlyReader plyReader = new PlyReaderFile(plyFile);
 
 		// Allocate vertex and face arrays
-		vertices = new float[plyReader.getElementCount("vertex")][3];
+		vertices = new Vector3[plyReader.getElementCount("vertex")];
 		faces = new int[plyReader.getElementCount("face")][3];
 
 		// Populate vertex and face arrays
@@ -51,9 +55,11 @@ public class Model {
 					Element vertexEl = elReader.readElement();
 					int vertexIndex = 0;
 					while (vertexEl != null) {
-						vertices[vertexIndex][0] = (float) vertexEl.getDouble("x");
-						vertices[vertexIndex][1] = (float) vertexEl.getDouble("y");
-						vertices[vertexIndex][2] = (float) vertexEl.getDouble("z");
+						vertices[vertexIndex] = new Vector3(
+								(float) vertexEl.getDouble("x"),
+								(float) vertexEl.getDouble("y"),
+								(float) vertexEl.getDouble("z")
+						);
 						vertexIndex++;
 						vertexEl = elReader.readElement();
 					}
@@ -82,172 +88,270 @@ public class Model {
 		return faces;
 	}
 
-	public float[][] getVertices() {
+	public Vector3[] getVertices() {
 		return vertices;
 	}
 
-	public Model rotate(float rotX, float rotY, float rotZ, float originX, float originY, float originZ) {
-		int[][] _faces = Utils.copyIntMatrix(faces);
-		float[][] _vertices = Utils.copyFloatMatrix(vertices);
-
-		// Rotate around X axis
-		if (rotX != 0) {
-			for (int vertexIndex = 0; vertexIndex < _vertices.length; vertexIndex++) {
-				float[] vertex = _vertices[vertexIndex];
-				float[] newData = Utils.rotatePoint2D(originY, originZ, vertex[1], vertex[2], rotX);
-				_vertices[vertexIndex][1] = newData[0];
-				_vertices[vertexIndex][2] = newData[1];
-			}
-		}
-		// Rotate around Y axis
-		if (rotY != 0) {
-			for (int vertexIndex = 0; vertexIndex < _vertices.length; vertexIndex++) {
-				float[] vertex = _vertices[vertexIndex];
-				float[] newData = Utils.rotatePoint2D(originX, originZ, vertex[0], vertex[2], rotY);
-				_vertices[vertexIndex][0] = newData[0];
-				_vertices[vertexIndex][2] = newData[1];
-			}
-		}
-		// Rotate around Z axis
-		if (rotZ != 0) {
-			for (int vertexIndex = 0; vertexIndex < _vertices.length; vertexIndex++) {
-				float[] vertex = _vertices[vertexIndex];
-				float[] newData = Utils.rotatePoint2D(originX, originY, vertex[0], vertex[1], rotZ);
-				_vertices[vertexIndex][0] = newData[0];
-				_vertices[vertexIndex][1] = newData[1];
-			}
-		}
-
-		return new Model(_faces, _vertices, verbose);
+	public Model rotateX(float degrees) {
+		return rotateX(degrees, Vector3.ZERO);
 	}
 
-	private float getMin(int axisIndex) {
-		return (float) Arrays.stream(vertices).mapToDouble(v -> v[axisIndex]).min().orElse(0);
+	public Model rotateY(float degrees) {
+		return rotateY(degrees, Vector3.ZERO);
 	}
 
-	private float getMax(int axisIndex) {
-		return (float) Arrays.stream(vertices).mapToDouble(v -> v[axisIndex]).max().orElse(0);
+	public Model rotateZ(float degrees) {
+		return rotateZ(degrees, Vector3.ZERO);
 	}
 
-	private float getMinX() {
-		return getMin(0);
+	public Model rotateX(float degrees, Vector3 origin) {
+		return rotate(new Vector3(degrees, 0, 0), origin);
 	}
 
-	private float getMinY() {
-		return getMin(1);
+	public Model rotateY(float degrees, Vector3 origin) {
+		return rotate(new Vector3(0, degrees, 0), origin);
 	}
 
-	private float getMinZ() {
-		return getMin(2);
+	public Model rotateZ(float degrees, Vector3 origin) {
+		return rotate(new Vector3(0, 0, degrees), origin);
 	}
 
-	private float getMaxX() {
-		return getMax(0);
+	public Model rotate(Vector3 degrees) {
+		return rotate(degrees, Vector3.ZERO);
 	}
 
-	private float getMaxY() {
-		return getMax(1);
+	public Model rotate(Vector3 degrees, Vector3 origin) {
+		Vector3[] vertices = Arrays.stream(this.vertices)
+				.parallel()
+				.map(vertex -> vertex.rotate(origin, degrees))
+				.collect(Collectors.toList())
+				.toArray(new Vector3[this.vertices.length]);
+		return new Model(Utils.copyIntMatrix(faces), vertices, verbose);
 	}
 
-	private float getMaxZ() {
-		return getMax(2);
+	public Vector3 getMin() {
+		return new Vector3(getMinX(), getMinY(), getMinZ());
 	}
 
-	public Model normalizeVertices(boolean centered) {
-		int[][] _faces = Utils.copyIntMatrix(faces);
-		float[][] _vertices = Utils.copyFloatMatrix(vertices);
-
-		float minX = getMinX(), minY = getMinY(), minZ = getMinZ();
-
-		// Reset vertices relative to 0,0,0 origin
-		for (int verticeIndex = 0; verticeIndex < _vertices.length; verticeIndex++) {
-			_vertices[verticeIndex][0] -= minX;
-			_vertices[verticeIndex][1] -= minY;
-			_vertices[verticeIndex][2] -= minZ;
-		}
-
-		float maxX = getMaxX() - minX, maxY = getMaxY() - minY, maxZ = getMaxZ() - minZ;
-
-		// Find largest axis
-		float maxAll = Math.max(Math.max(maxX, maxY), maxZ);
-
-		// Normalize vertices
-		for (int verticeIndex = 0; verticeIndex < _vertices.length; verticeIndex++) {
-			_vertices[verticeIndex][0] /= maxAll;
-			_vertices[verticeIndex][1] /= maxAll;
-			_vertices[verticeIndex][2] /= maxAll;
-		}
-
-		// Center if required
-		if (centered) {
-			for (int verticeIndex = 0; verticeIndex < _vertices.length; verticeIndex++) {
-				_vertices[verticeIndex][0] += .5f - maxX / 2f;
-				_vertices[verticeIndex][1] += .5f - maxY / 2f;
-				_vertices[verticeIndex][2] += .5f - maxZ / 2f;
-			}
-		}
-
-		return new Model(_faces, _vertices, verbose);
+	public Vector3 getMax() {
+		return new Vector3(getMaxX(), getMaxY(), getMaxZ());
 	}
 
-	public BufferedImage render(int resolution, RenderStyle renderStyle) {
-		if (verbose) System.out.println("Rendering at resolution " + resolution + " with style " + renderStyle.name());
+	public Vector3 getCenter() {
+		return getMax().subtract(getMin()).multiply(.5f).add(getMin());
+	}
 
-		// Get a normalized, centered, model
-		Model model = this.normalizeVertices(true);
+	public float getMinX() {
+		return (float) Arrays.stream(vertices).parallel().mapToDouble(Vector3::getX).min().orElse(0);
+	}
 
-		// Obtain dimensions
-		float minX = model.getMinX(), minY = model.getMinY(), minZ = model.getMinZ(), maxX = model.getMaxX(), maxY = model.getMaxY(), maxZ = model.getMaxZ();
+	public float getMinY() {
+		return (float) Arrays.stream(vertices).parallel().mapToDouble(Vector3::getY).min().orElse(0);
+	}
 
+	public float getMinZ() {
+		return (float) Arrays.stream(vertices).parallel().mapToDouble(Vector3::getZ).min().orElse(0);
+	}
 
-		// Initialize image
-		BufferedImage bimg = new BufferedImage(resolution, resolution, BufferedImage.TYPE_INT_ARGB);
+	public float getMaxX() {
+		return (float) Arrays.stream(vertices).parallel().mapToDouble(Vector3::getX).max().orElse(0);
+	}
+
+	public float getMaxY() {
+		return (float) Arrays.stream(vertices).parallel().mapToDouble(Vector3::getY).max().orElse(0);
+	}
+
+	public float getMaxZ() {
+		return (float) Arrays.stream(vertices).parallel().mapToDouble(Vector3::getZ).max().orElse(0);
+	}
+
+	public Model center() {
+		Vector3 center = getCenter();
+		Vector3[] vertices = Arrays.stream(this.vertices)
+				.parallel()
+				.map(v -> v.subtract(center))
+				.collect(Collectors.toList())
+				.toArray(new Vector3[this.vertices.length]);
+		return new Model(Utils.copyIntMatrix(faces), vertices, verbose);
+	}
+
+	public Model normalize() {
+		Vector3[] vertices = center().vertices;
+		// Normalize to max length
+		float maxLength = (float) Arrays.stream(vertices)
+				.mapToDouble(Vector3::length)
+				.max()
+				.orElse(0);
+		vertices = Arrays.stream(this.vertices)
+				.parallel()
+				.map(v -> v.divide(maxLength))
+				.collect(Collectors.toList())
+				.toArray(new Vector3[this.vertices.length]);
+		return new Model(Utils.copyIntMatrix(faces), vertices, verbose);
+	}
+
+	public Model fit(Vector3 min, Vector3 max) {
+		Model model = move(getMin().invert());
+		model = model
+				.scale(1 / model.getMax().maxComponentLength() * max.subtract(min).maxComponentLength())
+				.center()
+				.move(max.subtract(min).multiply(.5f).add(min));
+		return model;
+	}
+
+	public Model scale(float factor) {
+		return scale(factor, Vector3.ZERO);
+	}
+
+	public Model scale(float factor, Vector3 origin) {
+		return scale(new Vector3(factor, factor, factor), origin);
+	}
+
+	public Model scale(Vector3 factor, Vector3 origin) {
+		Model model = move(origin.invert());
+		Vector3[] vertices = Arrays.stream(model.vertices)
+				.parallel()
+				.map(vector -> vector.multiply(factor))
+				.collect(Collectors.toList())
+				.toArray(new Vector3[this.vertices.length]);
+		return new Model(Utils.copyIntMatrix(faces), vertices, verbose).move(origin);
+	}
+
+	public Model moveX(float distance) {
+		return move(new Vector3(distance, 0, 0));
+	}
+
+	public Model moveY(float distance) {
+		return move(new Vector3(0, distance, 0));
+	}
+
+	public Model moveZ(float distance) {
+		return move(new Vector3(0, 0, distance));
+	}
+
+	public Model move(Vector3 distance) {
+		Vector3[] vertices = Arrays.stream(this.vertices)
+				.parallel()
+				.map(vector -> vector.add(distance))
+				.collect(Collectors.toList())
+				.toArray(new Vector3[this.vertices.length]);
+		return new Model(Utils.copyIntMatrix(faces), vertices, verbose);
+	}
+
+	public BufferedImage render(int width, int height) {
+		return render(width, height, new ViewPort(new Vector2(-1, -1), new Vector2(1, 1)));
+	}
+
+	public BufferedImage render(int width, int height, RenderStyle renderStyle) {
+		return render(width, height, renderStyle, new ViewPort(new Vector2(-1, -1), new Vector2(1, 1)));
+	}
+
+	public BufferedImage render(int width, int height, ViewPort viewPort) {
+		return render(width, height, RenderStyle.SILHOUETTE, viewPort);
+	}
+
+	public BufferedImage render(int width, int height, RenderStyle renderStyle, ViewPort viewPort) {
+		BufferedImage bimg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D g = bimg.createGraphics();
 
-		// Set white background
-		g.setColor(Color.WHITE);
-		g.fillRect(0, 0, resolution, resolution);
+		// Draw Background
+		g.setColor(renderStyle.getBgColor());
+		g.fillRect(0, 0, width, height);
+
+		float minX = getMinX(), minY = getMinY(), minZ = getMinZ(), maxX = getMaxX(), maxY = getMaxY(), maxZ = getMaxZ();
 
 		// Draw polygons
-		Arrays.stream(model.getFaces())
-				.sorted(renderStyle.getFaceComparator(model)).forEach(face -> {
-			Polygon p = new Polygon();
-			for (int vertexIndex : face) {
-				int x = (int) (model.getVertices()[vertexIndex][0] * resolution);
-				int y = resolution - (int) (model.getVertices()[vertexIndex][2] * resolution);
-				p.addPoint(x, y);
-			}
-			switch (renderStyle) {
-				case DEPTH_MAP_INVERTED:
-				case DEPTH_MAP:
-					int _v = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> model.getVertices()[vertexIndex][1]).average().orElse(0d) - minY) / (maxY - minY) * 255d);
-					g.setColor(new Color(_v, _v, _v));
-					break;
-				case AXIS_RGB_INVERTED:
-				case AXIS_RGB:
-					int _r = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> model.getVertices()[vertexIndex][0]).average().orElse(0d) - minX) / (maxX - minX) * 255d);
-					int _g = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> model.getVertices()[vertexIndex][1]).average().orElse(0d) - minY) / (maxY - minY) * 255d);
-					int _b = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> model.getVertices()[vertexIndex][2]).average().orElse(0d) - minZ) / (maxZ - minZ) * 255d);
-					g.setColor(new Color(_r, _g, _b));
-					break;
-				default:
-				case SILHOUETTE:
-					g.setColor(Color.BLACK);
-					break;
-			}
+		Arrays.stream(getFaces())
+				.sorted(renderStyle.getFaceComparator(this))
+				.forEach(face -> {
+					Polygon p = new Polygon();
+					Arrays.stream(face)
+							.mapToObj(vI -> vertices[vI])
+							.forEach(v -> {
+								Vector2 pos = viewPort.getNormalizedVectorInViewPort(v.getVectorXY()).multiply(width, height);
+								p.addPoint(Math.round(pos.getX()), height - Math.round(pos.getY()));
+							});
+					switch (renderStyle) {
+						case AXIS_RGB_INVERTED:
+						case AXIS_RGB:
+							int _r = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> vertices[vertexIndex].getX()).average().orElse(0d) - minX) / (maxX - minX) * 255d);
+							int _g = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> vertices[vertexIndex].getY()).average().orElse(0d) - minY) / (maxY - minY) * 255d);
+							int _b = (int) ((Arrays.stream(face).mapToDouble(vertexIndex -> vertices[vertexIndex].getZ()).average().orElse(0d) - minZ) / (maxZ - minZ) * 255d);
+							g.setColor(new Color(_r, _g, _b));
+							break;
+						case SILHOUETTE_INVERTED:
+							g.setColor(Color.WHITE);
+							break;
+						default:
+						case SILHOUETTE:
+							g.setColor(Color.BLACK);
+							break;
+					}
 
-			g.fillPolygon(p);
-		});
+					g.fillPolygon(p);
+				});
 
-		// Return buffered image
+		// Fill in missing gaps
+		if (renderStyle == RenderStyle.SILHOUETTE || renderStyle == RenderStyle.SILHOUETTE_INVERTED) {
+
+		}
+
 		return bimg;
 	}
 
+	public static class ViewPort {
+		private Vector2 from;
+		private Vector2 to;
+
+		public ViewPort(Vector2 from, Vector2 to) {
+			this.from = new Vector2(Math.min(from.getX(), to.getX()), Math.min(from.getY(), to.getY()));
+			this.to = new Vector2(Math.max(from.getX(), to.getX()), Math.max(from.getY(), to.getY()));
+		}
+
+		public Vector2 getFrom() {
+			return from;
+		}
+
+		public Vector2 getTo() {
+			return to;
+		}
+
+		public Vector2 getNormalizedVectorInViewPort(Vector2 vector) {
+			return vector.subtract(from).divide(to.subtract(from));
+		}
+	}
+
+	public void exportWavefrontOBJ(File file) throws IOException {
+		if (verbose) System.out.println("Exporting wavefront model...");
+		StringBuilder content = new StringBuilder();
+		for (Vector3 vertex : vertices)
+			content.append("v ")
+					.append(vertex.getX())
+					.append(" ")
+					.append(vertex.getY())
+					.append(" ")
+					.append(vertex.getZ())
+					.append("\n");
+		for (int[] face : faces)
+			content.append("f ")
+					.append(face[0] + 1)
+					.append(" ")
+					.append(face[1] + 1)
+					.append(" ")
+					.append(face[2] + 1)
+					.append("\n");
+		if (!file.exists())
+			file.createNewFile();
+		PrintWriter pw = new PrintWriter(file);
+		pw.write(content.toString());
+		pw.close();
+		if (verbose) System.out.println("Exported wavefront model to " + file.getAbsolutePath());
+	}
 
 	private static final Function<Integer, Function<Model, Comparator<int[]>>> DEPTH_SORT = (dir) -> (model) -> (a, b) -> {
-		float avgYA = (float) Arrays.stream(a).mapToDouble(vId -> model.getVertices()[vId][1]).average().orElse(0);
-		float avgYB = (float) Arrays.stream(b).mapToDouble(vId -> model.getVertices()[vId][1]).average().orElse(0);
-		float diff = avgYB - avgYA;
+		float avgZA = (float) Arrays.stream(a).mapToDouble(vId -> model.getVertices()[vId].getZ()).average().orElse(0);
+		float avgZB = (float) Arrays.stream(b).mapToDouble(vId -> model.getVertices()[vId].getZ()).average().orElse(0);
+		float diff = avgZB - avgZA;
 		if (diff > 0) return dir;
 		else if (diff < 0) return -dir;
 		return 0;
@@ -255,20 +359,24 @@ public class Model {
 
 	public enum RenderStyle {
 
-		SILHOUETTE((model) -> (a, b) -> 1),
-		DEPTH_MAP(DEPTH_SORT.apply(1)),
-		DEPTH_MAP_INVERTED(DEPTH_SORT.apply(-1)),
-		AXIS_RGB(DEPTH_SORT.apply(1)),
-		AXIS_RGB_INVERTED(DEPTH_SORT.apply(-1));
+		SILHOUETTE(Color.WHITE, (model) -> (a, b) -> 1),
+		SILHOUETTE_INVERTED(Color.BLACK, (model) -> (a, b) -> 1),
+		AXIS_RGB(Color.BLACK, DEPTH_SORT.apply(1)),
+		AXIS_RGB_INVERTED(Color.BLACK, DEPTH_SORT.apply(-1));
 
+		private Color bgColor;
 		private Function<Model, Comparator<int[]>> faceComparator;
 
-		RenderStyle(Function<Model, Comparator<int[]>> faceComparator) {
+		RenderStyle(Color bgColor, Function<Model, Comparator<int[]>> faceComparator) {
 			this.faceComparator = faceComparator;
 		}
 
 		public Comparator<int[]> getFaceComparator(Model model) {
 			return faceComparator.apply(model);
+		}
+
+		public Color getBgColor() {
+			return bgColor;
 		}
 	}
 }

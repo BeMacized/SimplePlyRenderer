@@ -126,7 +126,7 @@ public class SimplePlyRenderer {
 		}
 
 		// Render model
-		BufferedImage render = model.normalizeVertices(true).rotate(xrot, yrot, zrot, .5f, .5f, .5f).render(resolution, renderStyle);
+		BufferedImage render = model.normalize().rotate(new Vector3(.5f, .5f, .5f), new Vector3(xrot, yrot, zrot)).render(resolution, resolution);
 		if (verbose) System.out.println("Model rendered");
 
 		// Save model
