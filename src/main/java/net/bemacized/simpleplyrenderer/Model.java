@@ -260,6 +260,9 @@ public class Model {
 
 		float minX = getMinX(), minY = getMinY(), minZ = getMinZ(), maxX = getMaxX(), maxY = getMaxY(), maxZ = getMaxZ();
 
+		// Enable AA
+		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
 		// Draw polygons
 		Arrays.stream(getFaces())
 				.sorted(renderStyle.getFaceComparator(this))

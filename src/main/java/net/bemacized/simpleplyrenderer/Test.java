@@ -1,5 +1,6 @@
 package net.bemacized.simpleplyrenderer;
 
+import com.mortennobel.imagescaling.ResampleOp;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -19,11 +20,12 @@ public class Test {
 		// PARAMS
 		final int THREADS = 8;
 		File outputDir = new File("output");
-//		File modelDir = new File("/home/bemacized/Downloads/CAESAR/NL A standing/scans");
-//		File dataFile = new File("/home/bemacized/Downloads/CAESAR/NL info/data/DutchMeasurements.xls");
-		File modelDir = new File("/home/bemacized/Downloads/CAESAR/Italy A standing/scans");
-		File dataFile = new File("/home/bemacized/Downloads/CAESAR/Italy info/data/ItalyMeasurements.xls");
-		int resolution = 256;
+		File modelDir = new File("/home/bemacized/Downloads/CAESAR/NL A standing/scans");
+		File dataFile = new File("/home/bemacized/Downloads/CAESAR/NL info/data/DutchMeasurements.xls");
+//		File modelDir = new File("/home/bemacized/Downloads/CAESAR/Italy A standing/scans");
+//		File dataFile = new File("/home/bemacized/Downloads/CAESAR/Italy info/data/ItalyMeasurements.xls");
+		int renderResolution = 2048;
+		int finalResolution = 256;
 		Model.RenderStyle renderStyle = Model.RenderStyle.SILHOUETTE;
 		Model.ViewPort viewPort = new Model.ViewPort(new Vector2(-1, -1), new Vector2(1, 1));
 
@@ -36,8 +38,8 @@ public class Test {
 		for (Row row : dataSheet) {
 			if (row.getRowNum() == 0) continue;
 			try {
-				heights.put(String.valueOf((int) row.getCell(0).getNumericCellValue()), (float) row.getCell(34).getNumericCellValue()); // ITALIAN
-//				heights.put(String.valueOf((int) row.getCell(1).getNumericCellValue()), (float) row.getCell(33).getNumericCellValue()); // DUTCH
+//				heights.put(String.valueOf((int) row.getCell(0).getNumericCellValue()), (float) row.getCell(34).getNumericCellValue()); // ITALIAN
+				heights.put(String.valueOf((int) row.getCell(1).getNumericCellValue()), (float) row.getCell(33).getNumericCellValue()); // DUTCH
 			} catch (IllegalStateException ex) {
 				System.err.println("COULD NOT EXTRACT HEIGHT FOR SUBJECT " + row.getCell(0).getNumericCellValue());
 			}
@@ -45,8 +47,8 @@ public class Test {
 
 		// RELATIVISE HEIGHTS TO TALLEST PERSON
 //		float maxHeight = (float) heights.values().stream().mapToDouble(h -> h).max().orElse(0d);
-//		float maxHeight = 2560;
-		float maxHeight = 2183f; // TALLEST OF BOTH DATASETS
+//		float maxHeight = resolution * 10;
+		float maxHeight = 2183f; // TALLEST OF M
 		for (String key : heights.keySet()) {
 			if (heights.get(key) > maxHeight) {
 				System.err.println("WTF" + heights.get(key));
@@ -80,7 +82,8 @@ public class Test {
 					}
 					renderModel(
 							modelSubset[modelSubsetIndex],
-							resolution,
+							renderResolution,
+							finalResolution,
 							renderStyle,
 							viewPort,
 							outputDir,
@@ -92,7 +95,8 @@ public class Test {
 		}
 	}
 
-	public static void renderModel(File modelFile, int resolution, Model.RenderStyle renderStyle, Model.ViewPort viewPort, File outputDir, float scaleFactor) {
+	public static void renderModel(File modelFile, int renderResolution, int finalResolution, Model.RenderStyle renderStyle, Model.ViewPort viewPort, File outputDir, float scaleFactor) {
+		ResampleOp resampleOp = new ResampleOp (finalResolution,finalResolution);
 		try {
 			Model model = new Model(modelFile, false)
 					.rotateX(-90)
@@ -100,9 +104,11 @@ public class Test {
 					.fit(new Vector3(-1, -1, -1), new Vector3(1, 1, 1))
 					.scale(scaleFactor, new Vector3(0, -1, 0));
 
-			BufferedImage img = model.render(resolution, resolution, renderStyle, viewPort);
+			BufferedImage img = model.render(renderResolution, renderResolution, renderStyle, viewPort);
+			img = resampleOp.filter(img, null);
 			ImageIO.write(img, "png", new File(outputDir.getAbsolutePath() + "/" + modelFile.getName().substring(0, modelFile.getName().length() - 4) + "_front.png"));
-			img = model.rotateY(90).render(resolution, resolution, renderStyle, viewPort);
+			img = model.rotateY(90).render(renderResolution, renderResolution, renderStyle, viewPort);
+			img = resampleOp.filter(img, null);
 			ImageIO.write(img, "png", new File(outputDir.getAbsolutePath() + "/" + modelFile.getName().substring(0, modelFile.getName().length() - 4) + "_side.png"));
 		} catch (IOException e) {
 			e.printStackTrace();
