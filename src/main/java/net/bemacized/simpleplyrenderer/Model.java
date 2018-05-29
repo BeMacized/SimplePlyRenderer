@@ -10,10 +10,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -255,8 +253,8 @@ public class Model {
 		Graphics2D g = bimg.createGraphics();
 
 		// Draw Background
-		g.setColor(renderStyle.getBgColor());
-		g.fillRect(0, 0, width, height);
+//		g.setColor(renderStyle.getBgColor());
+//		g.fillRect(0, 0, width, height);
 
 		float minX = getMinX(), minY = getMinY(), minZ = getMinZ(), maxX = getMaxX(), maxY = getMaxY(), maxZ = getMaxZ();
 
@@ -335,14 +333,9 @@ public class Model {
 					.append(" ")
 					.append(vertex.getZ())
 					.append("\n");
-		for (int[] face : faces)
-			content.append("f ")
-					.append(face[0] + 1)
-					.append(" ")
-					.append(face[1] + 1)
-					.append(" ")
-					.append(face[2] + 1)
-					.append("\n");
+		for (int[] face : faces) {
+			content.append("f ").append(String.join(" ", Arrays.toString(face).split("[\\[\\]]")[1].split(", "))).append("\n");
+		}
 		if (!file.exists())
 			file.createNewFile();
 		PrintWriter pw = new PrintWriter(file);
